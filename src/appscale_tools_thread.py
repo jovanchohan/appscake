@@ -7,6 +7,12 @@ import os
 import sys
 import threading
 
+sys.path.append(os.path.join(os.path.dirname(__file__),"."))
+#  Since AppScake doesn't run the tools on the main thread, use a fake
+#  implementation of the signal class.
+import fake_signal
+sys.modules['signal'] = __import__('fake_signal').FakeSignal
+
 sys.path.append(os.path.join(os.path.dirname(__file__),"../appscale-tools/lib"))
 from appscale_tools import AppScaleTools
 from custom_exceptions import BadConfigurationException
@@ -106,7 +112,8 @@ class AppScaleDown(threading.Thread):
     if self.deployment_type == CLOUD:
       terminate_args.extend(["--EC2_SECRET_KEY", self.ec2_secret,
       "--EC2_ACCESS_KEY", self.ec2_access,
-      "--EC2_URL", self.ec2_url])
+      "--EC2_URL", self.ec2_url,
+      "--test"])
     try: 
       logging.info("Starting terminate instances.")
 
@@ -170,7 +177,7 @@ class AppScaleDown(threading.Thread):
 
 
 class AppScaleUp(threading.Thread):
-  """ Runs the AppScale tools command appscale-run-instances to start a new 
+  """ Runs the AppScale tools command appscale-run-instances to  a new 
   AppScale deployment. 
   """
 
@@ -210,7 +217,8 @@ class AppScaleUp(threading.Thread):
   def __init__(self, deployment_type, keyname, admin_email, admin_pass, 
     root_pass=None, placement=None, infrastructure=None, min_nodes=None, 
     max_nodes=None, machine=None, instance_type=None, ips_yaml=None, 
-    ec2_secret=None, ec2_access=None, ec2_url=None):
+    ec2_secret=None, ec2_access=None, ec2_url=None, oauth2_location=None,
+    project_id=None):
     """ A constructor setting up the required arguments for running
     appscale-run-instances. 
     
@@ -231,6 +239,8 @@ class AppScaleUp(threading.Thread):
       ec2_secret: A str, the EC2 secret key for EC2 and Euca.
       ec2_access: A str, the EC2 access key for EC2 and Euca.
       ec2_url: A str, the EC2 URL location for EC2 and Euca.
+      oauth2_location: 
+      project_id: 
     """
     threading.Thread.__init__(self)
 
@@ -248,6 +258,8 @@ class AppScaleUp(threading.Thread):
     self.instance_type = instance_type
     self.ec2_secret = ec2_secret
     self.ec2_access = ec2_access
+    self.oauth2_location = oauth2_location
+    self.project_id=project_id
 
     self.ec2_url = ec2_url
     if not ec2_url:
@@ -356,13 +368,24 @@ class AppScaleUp(threading.Thread):
     Returns:
       True on success, False otherwise.
     """
-    self.args.extend(["--infrastructure", str(self.infrastructure), 
-                      "--machine", self.machine,  
-                      "--ips_layout", self.ips_yaml_b64,
-                      "--group", self.keyname,
-                      "--EC2_SECRET_KEY", self.ec2_secret,
-                      "--EC2_ACCESS_KEY", self.ec2_access,
-                      "--EC2_URL", self.ec2_url])
+    if self.infrastructure == 'ec2' or self.infrastructure == 'euca':
+      self.args.extend(["--infrastructure", str(self.infrastructure), 
+                        "--machine", self.machine,  
+                        "--ips_layout", self.ips_yaml_b64,
+                        "--group", self.keyname,
+                        "--force",
+                        "--EC2_SECRET_KEY", self.ec2_secret,
+                        "--EC2_ACCESS_KEY", self.ec2_access,
+                        "--EC2_URL", self.ec2_url])
+    else:
+      self.args.extend(["--infrastructure", str(self.infrastructure),
+                        "--machine", self.machine,
+                        "--ips_layout", self.ips_yaml_b64,
+                        "--group", self.keyname,
+                        "--force",
+                        "--project", self.project_id,
+                        "--oauth2_storage", self.oauth2_location])
+
     return self.run_appscale()
 
   def run_simple_cloud_deploy(self):
@@ -372,13 +395,23 @@ class AppScaleUp(threading.Thread):
     Returns:
       True on success, False otherwise.
     """
-    self.args.extend(["--infrastructure", str(self.infrastructure),
-                      "--machine", self.machine,  
-                      "--max", self.max_nodes,
-                      "--group", self.keyname,
-                      "--EC2_SECRET_KEY", self.ec2_secret,
-                      "--EC2_ACCESS_KEY", self.ec2_access,
-                      "--EC2_URL", self.ec2_url])
+    if self.infrastructure == 'ec2' or self.infrastructure == 'euca':
+      self.args.extend(["--infrastructure", str(self.infrastructure),
+                        "--machine", self.machine,  
+                        "--max", self.max_nodes,
+                        "--group", self.keyname,
+                        "--force",
+                        "--EC2_SECRET_KEY", self.ec2_secret,
+                        "--EC2_ACCESS_KEY", self.ec2_access,
+                        "--EC2_URL", self.ec2_url])
+    else:
+      self.args.extend(["--infrastructure", str(self.infrastructure),
+                        "--machine", self.machine,
+                        "--max", self.max_nodes,
+                        "--group", self.keyname,
+                        "--force",
+                        "--project", self.project_id,
+                        "--oauth2_storage", self.oauth2_location])
     return self.run_appscale()
 
   def run_appscale(self):

@@ -159,7 +159,7 @@ class CommonFields(forms.Form):
   }))
 
   #Form for JSON GCE credentials
-  gceCredentials = forms.CharField(max_length=100, widget=forms.TextInput(
+  gceCredentials = forms.CharField(max_length=1000, widget=forms.TextInput(
     attrs={
     'placeholder': 'Paste your GCE JSON credentials',
     'id': 'gce-credentials',

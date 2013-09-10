@@ -9,6 +9,7 @@ urlpatterns = patterns('src.views',
     url(r'start/$', 'start'),
     url(r'terminate/$', 'terminate'),
     url(r'test/$', 'test'),
+    url(r'oauth2_callback/$', 'oauth2_callback'),
     url(r'getdeploymentstatus/$', 'get_deployment_status'),
     url(r'getterminationstatus/$', 'get_termination_status')
     )
